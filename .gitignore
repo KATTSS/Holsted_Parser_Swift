@@ -1,0 +1,21 @@
+# Сборка и временные файлы
+[Bb]in/
+[Oo]bj/
+.vs/
+.vscode/
+!.vscode/*.g4
+!.vscode/*.tokens
+*.user
+*.userosscache
+*.sln.docstates
+
+# Файлы MAUI
+.DS_Store
+[Pp]latforms/Android/obj/
+[Pp]latforms/iOS/obj/
+
+# Пакеты
+*.nupkg
+.nuget/
+
+.git/

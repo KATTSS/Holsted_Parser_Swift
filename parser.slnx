@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="AntlrCSharp/AntlrCSharp.csproj" />
+  <Project Path="AntlrCSharpLib/AntlrCSharpLib.csproj" />
+</Solution>
