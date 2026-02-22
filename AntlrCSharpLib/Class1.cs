@@ -19,40 +19,76 @@ public class HalsteadMetrics
     public int ProgramLength => TotalOperators + TotalOperands;
     public double Volume => ProgramLength * (ProgramVocabulary > 0 ? Math.Log2(ProgramVocabulary) : 0);
 
+    // public void Calculate(CommonTokenStream tokens)
+    // {
+    //     tokens.Fill();
+    //     var allTokens = tokens.GetTokens();
+
+    //     for (int i = 0; i < allTokens.Count; i++)
+    //     {
+    //         var token = allTokens[i];
+    //         string name = Swift5Lexer.DefaultVocabulary.GetSymbolicName(token.Type);
+    //         string text = token.Text;
+
+    //         if (string.IsNullOrEmpty(name) || IsIgnored(name)) continue;
+
+    //         if (IsLiteral(name)||name.Contains("digits"))
+    //         {
+    //             AddToken(Operands, text);
+    //         }
+    //         else if (name == "Identifier")
+    //         {
+    //             if (IsFunctionCall(allTokens, i))
+    //             {
+    //                 AddToken(Operators, text);
+    //             }
+    //             else
+    //             {
+    //                 AddToken(Operands, text);
+    //             }
+    //         }
+    //         else
+    //         {
+    //             AddToken(Operators, text);
+    //         }
+    //     }
+    // }
+
     public void Calculate(CommonTokenStream tokens)
+{
+    tokens.Fill();
+    var allTokens = tokens.GetTokens();
+
+    for (int i = 0; i < allTokens.Count; i++)
     {
-        tokens.Fill();
-        var allTokens = tokens.GetTokens();
+        var token = allTokens[i];
+        string name = Swift5Lexer.DefaultVocabulary.GetSymbolicName(token.Type);
+        string text = token.Text;
 
-        for (int i = 0; i < allTokens.Count; i++)
+        Console.Write($"{text}  ");
+
+        if (string.IsNullOrEmpty(name) || IsIgnored(name)) continue;
+         if (IsLiteral(name) || name.Contains("digits"))
         {
-            var token = allTokens[i];
-            string name = Swift5Lexer.DefaultVocabulary.GetSymbolicName(token.Type);
-            string text = token.Text;
-
-            if (string.IsNullOrEmpty(name) || IsIgnored(name)) continue;
-
-            if (IsLiteral(name)||name.Contains("digits"))
-            {
-                AddToken(Operands, text);
-            }
-            else if (name == "Identifier")
-            {
-                if (IsFunctionCall(allTokens, i))
-                {
-                    AddToken(Operators, text);
-                }
-                else
-                {
-                    AddToken(Operands, text);
-                }
-            }
-            else
+            AddToken(Operands, text);
+        }
+        else if (name == "Identifier")
+        {
+            if (IsFunctionCall(allTokens, i))
             {
                 AddToken(Operators, text);
             }
+            else
+            {
+                AddToken(Operands, text);
+            }
+        }
+        else 
+        {
+            AddToken(Operators, text);
         }
     }
+}
 
     private bool IsFunctionCall(IList<IToken> allTokens, int currentIndex)
     {
@@ -67,19 +103,33 @@ public class HalsteadMetrics
         }
         return false;
     }
-
     private bool IsLiteral(string name)
     {
         string upper = name.ToUpper();
-        return upper.Contains("LITERAL") || upper.Contains("STRING") || 
-               upper == "TRUE" || upper == "FALSE" || upper == "NIL";
+        Console.Write($" ---- {name}");
+        Console.WriteLine();
+        return (upper.Contains("LITERAL") || upper.Contains("STRING") || upper.Contains("QUOTED") || 
+            upper == "TRUE" || upper == "FALSE" || upper == "NIL") & (!upper.Contains("OPEN") & !upper.Contains("CLOSE"));
     }
 
     private bool IsIgnored(string name)
     {
         string upper = name.ToUpper();
-        return upper == "WS" || upper.Contains("COMMENT") || upper == "EOF";
+        return upper == "WS" || upper.Contains("COMMENT") || upper == "EOF" || 
+            upper == "LINE_BREAK" || upper == "INLINE_SPACES";
     }
+    // private bool IsLiteral(string name)
+    // {
+    //     string upper = name.ToUpper();
+    //     return upper.Contains("LITERAL") || upper.Contains("STRING") || 
+    //            upper == "TRUE" || upper == "FALSE" || upper == "NIL";
+    // }
+
+    // private bool IsIgnored(string name)
+    // {
+    //     string upper = name.ToUpper();
+    //     return upper == "WS" || upper.Contains("COMMENT") || upper == "EOF";
+    // }
 
     private void AddToken(Dictionary<string, int> dict, string key)
     {
