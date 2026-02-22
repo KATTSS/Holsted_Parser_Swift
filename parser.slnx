@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="AntlrCSharp/AntlrCSharp.csproj" />
   <Project Path="AntlrCSharpLib/AntlrCSharpLib.csproj" />
+  <Project Path="HalsteadGui/HalsteadGui.csproj" Id="09c8c009-624b-4fc3-b814-f9050dbc3bc8" />
 </Solution>
