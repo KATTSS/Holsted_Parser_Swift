@@ -1,6 +1,8 @@
 ﻿using Antlr4.Runtime;
+using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace AntlrCSharpLib;
@@ -19,76 +21,120 @@ public class HalsteadMetrics
     public int ProgramLength => TotalOperators + TotalOperands;
     public double Volume => ProgramLength * (ProgramVocabulary > 0 ? Math.Log2(ProgramVocabulary) : 0);
 
-    // public void Calculate(CommonTokenStream tokens)
-    // {
-    //     tokens.Fill();
-    //     var allTokens = tokens.GetTokens();
+    private readonly HashSet<string> _openBrackets = new() { "(", "{", "[" };
+    private readonly HashSet<string> _closingBrackets = new() { ")", "}", "]"};
 
-    //     for (int i = 0; i < allTokens.Count; i++)
-    //     {
-    //         var token = allTokens[i];
-    //         string name = Swift5Lexer.DefaultVocabulary.GetSymbolicName(token.Type);
-    //         string text = token.Text;
+    // private bool _syntaxError=false;
+    // private int opens=0, closes=0;
 
-    //         if (string.IsNullOrEmpty(name) || IsIgnored(name)) continue;
-
-    //         if (IsLiteral(name)||name.Contains("digits"))
-    //         {
-    //             AddToken(Operands, text);
-    //         }
-    //         else if (name == "Identifier")
-    //         {
-    //             if (IsFunctionCall(allTokens, i))
-    //             {
-    //                 AddToken(Operators, text);
-    //             }
-    //             else
-    //             {
-    //                 AddToken(Operands, text);
-    //             }
-    //         }
-    //         else
-    //         {
-    //             AddToken(Operators, text);
-    //         }
-    //     }
-    // }
-
-    public void Calculate(CommonTokenStream tokens)
-{
-    tokens.Fill();
-    var allTokens = tokens.GetTokens();
-
-    for (int i = 0; i < allTokens.Count; i++)
+        public void Calculate(CommonTokenStream tokens)
     {
-        var token = allTokens[i];
-        string name = Swift5Lexer.DefaultVocabulary.GetSymbolicName(token.Type);
-        string text = token.Text;
+        tokens.Fill();
+        var allTokens = tokens.GetTokens();
 
-        Console.Write($"{text}  ");
+        //  opens=0;
+        //  closes=0;
 
-        if (string.IsNullOrEmpty(name) || IsIgnored(name)) continue;
-         if (IsLiteral(name) || name.Contains("digits"))
+        for (int i = 0; i < allTokens.Count; i++)
         {
-            AddToken(Operands, text);
-        }
-        else if (name == "Identifier")
-        {
-            if (IsFunctionCall(allTokens, i))
+            var token = allTokens[i];
+            string name = Swift5Lexer.DefaultVocabulary.GetSymbolicName(token.Type);
+            string text = token.Text;
+
+            if (string.IsNullOrEmpty(name) || IsIgnored(name)) continue;
+            if (IsDeclarationKeyword(text))
             {
-                AddToken(Operators, text);
+                i = SkipDeclaration(allTokens, i);
+                continue;
+            }
+            if (_closingBrackets.Contains(text)) {
+               // ++closes; 
+                continue;}
+
+            if (name == "Identifier")
+            {
+                int nextIdx = GetNextMeaningfulTokenIndex(allTokens, i);
+                if (nextIdx != -1 && allTokens[nextIdx].Text == "(")
+                {
+                    AddToken(Operators, text + "()");
+                   // ++opens;
+                    i = nextIdx; 
+                }
+                else
+                {
+                    AddToken(Operands, text);
+                }
+                continue;
+            }
+
+            if (IsLiteral(name))
+            {
+                AddToken(Operands, text);
+                continue;
+            }
+
+            if (text == "if")
+            {
+                AddToken(Operators, "if...else"); 
+            }
+            else if (_openBrackets.Contains(text))
+            {
+                string display = text switch {
+                    "(" => "()",
+                    "[" => "[]",
+                    "{" => "{}",
+                    _ => text
+                };
+                AddToken(Operators, display);
+                //++opens;
             }
             else
             {
-                AddToken(Operands, text);
+                AddToken(Operators, text);
             }
         }
-        else 
-        {
-            AddToken(Operators, text);
-        }
+        // if (opens!=closes) _syntaxError=true;
+        // Console.WriteLine($"opens {opens} - closes {closes}");
     }
-}
+    private int GetNextMeaningfulTokenIndex(IList<IToken> tokens, int currentIndex)
+    {
+        for (int j = currentIndex + 1; j < tokens.Count; j++)
+        {
+            string name = Swift5Lexer.DefaultVocabulary.GetSymbolicName(tokens[j].Type);
+            if (IsIgnored(name)) continue;
+            return j;
+        }
+        return -1;
+    }
+
+    private bool IsDeclarationKeyword(string text)
+    {
+        return text is "let" or "var" or "func" or "class" or "struct" or "enum" or "typealias";
+    }
+
+    private int SkipDeclaration(IList<IToken> tokens, int index)
+    {
+        int j = index;
+        while (j < tokens.Count)
+        {
+            string t = tokens[j].Text;
+            if (t == "=" || t == "{" || t == ";") break;
+            j++;
+        }
+        return j - 1;
+    }
+
+    private bool IsLabel(IList<IToken> tokens, int index)
+    {
+        if (index + 1 >= tokens.Count) return false;
+        var next = tokens[index + 1];
+         return next.Text == ":";
+    }
+
+    private int SkipToPossibleElse(IList<IToken> tokens, int index)
+    {
+        return index;
+    }
 
     private bool IsFunctionCall(IList<IToken> allTokens, int currentIndex)
     {
@@ -96,40 +142,26 @@ public class HalsteadMetrics
         {
             var nextToken = allTokens[j];
             string nextName = Swift5Lexer.DefaultVocabulary.GetSymbolicName(nextToken.Type);
-            
-            if (nextName == "WS" || nextName.Contains("comment")) continue;
-
+            if (nextName == "WS" || nextName.Contains("comment") || nextName == "LINE_BREAK") continue;
             return nextToken.Text == "(";
         }
         return false;
     }
+
     private bool IsLiteral(string name)
     {
         string upper = name.ToUpper();
-        Console.Write($" ---- {name}");
-        Console.WriteLine();
-        return (upper.Contains("LITERAL") || upper.Contains("STRING") || upper.Contains("QUOTED") || 
-            upper == "TRUE" || upper == "FALSE" || upper == "NIL") & (!upper.Contains("OPEN") & !upper.Contains("CLOSE"));
+        return (upper.Contains("LITERAL") || upper.Contains("STRING") || upper.Contains("DIGITS") ||  upper.Contains("QUOTED") || 
+                upper == "TRUE" || upper == "FALSE" || upper == "NIL") & 
+               (!upper.Contains("OPEN") && !upper.Contains("CLOSE"));
     }
 
     private bool IsIgnored(string name)
     {
         string upper = name.ToUpper();
         return upper == "WS" || upper.Contains("COMMENT") || upper == "EOF" || 
-            upper == "LINE_BREAK" || upper == "INLINE_SPACES";
+               upper == "LINE_BREAK" || upper == "INLINE_SPACES";
     }
-    // private bool IsLiteral(string name)
-    // {
-    //     string upper = name.ToUpper();
-    //     return upper.Contains("LITERAL") || upper.Contains("STRING") || 
-    //            upper == "TRUE" || upper == "FALSE" || upper == "NIL";
-    // }
-
-    // private bool IsIgnored(string name)
-    // {
-    //     string upper = name.ToUpper();
-    //     return upper == "WS" || upper.Contains("COMMENT") || upper == "EOF";
-    // }
 
     private void AddToken(Dictionary<string, int> dict, string key)
     {
@@ -138,46 +170,14 @@ public class HalsteadMetrics
         else dict[key] = 1;
     }
 
-    // public void PrintDetailedMetrics()
-    // {
-    //     Console.WriteLine("\n" + new string('=', 50));
-    //     Console.WriteLine("ОТЧЕТ ПО МЕТРИКАМ ХОЛСТЕДА (Swift)");
-    //     Console.WriteLine(new string('=', 50));
+    public int GetUniqueOperators() => UniqueOperators;
+    public int GetUniqueOperands() => UniqueOperands;
+    public int GetTotalOperators() => TotalOperators;
+    public int GetTotalOperands() => TotalOperands;
+    public int GetVocabulary() => ProgramVocabulary;
+    public int GetLength() => ProgramLength;
+    public double GetVolume() => Volume;
+    // public bool GetError()=>_syntaxError;
 
-    //     Console.WriteLine("\n--- ТАБЛИЦА ОПЕРАТОРОВ (n1, N1) ---");
-    //     PrintTable(Operators, TotalOperators);
-
-    //     Console.WriteLine("\n--- ТАБЛИЦА ОПЕРАНДОВ (n2, N2) ---");
-    //     PrintTable(Operands, TotalOperands);
-
-    //     Console.WriteLine("\n--- ИТОГОВЫЕ РЕЗУЛЬТАТЫ ---");
-    //     Console.WriteLine($"n1 (Уникальные операторы): {UniqueOperators}");
-    //     Console.WriteLine($"n2 (Уникальные операнды):  {UniqueOperands}");
-    //     Console.WriteLine($"N1 (Всего операторов):     {TotalOperators}");
-    //     Console.WriteLine($"N2 (Всего операндов):      {TotalOperands}");
-    //     Console.WriteLine(new string('-', 30));
-    //     Console.WriteLine($"Словарь программы (η):     {ProgramVocabulary}");
-    //     Console.WriteLine($"Длина программы (N):       {ProgramLength}");
-    //     Console.WriteLine($"Объем программы (V):       {Volume:F2} бит");
-    //     Console.WriteLine(new string('=', 50));
-    // }
-
-    public int GetUniqueOperators() {return UniqueOperators;}
-    public int GetUniqueOperands() {return UniqueOperands;}
-    public int GetTotalOperators() {return TotalOperators;}
-    public int GetTotalOperands() {return TotalOperands;}
-    public int GetVocabulary() {return ProgramVocabulary;}
-    public int GetLength() {return ProgramLength;}
-    public double GetVolume() {return Volume;}
-
-    // private void PrintTable(Dictionary<string, int> dict, int total)
-    // {
-    //     Console.WriteLine($"{"Элемент",-20} | {"Кол-во",-7} | {"Частота",-8}");
-    //     Console.WriteLine(new string('-', 40));
-    //     foreach (var entry in dict.OrderByDescending(x => x.Value))
-    //     {
-    //         double freq = (double)entry.Value / total;
-    //         Console.WriteLine($"{entry.Key,-20} | {entry.Value,-7} | {freq:P1}");
-    //     }
-    // }
+    // public bool ResetError() => _syntaxError=false;
 }

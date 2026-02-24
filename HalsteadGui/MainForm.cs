@@ -307,16 +307,19 @@ public class MainForm : Form
             int vocabulary = metrics.GetVocabulary();
             int length = metrics.GetLength();
             double volume = metrics.GetVolume();
+           // bool errors = metrics.GetError();
 
             int sumRowIndex = dgvMainMetrics.Rows.Add($"η1 = {n1}", "", $"N1 = {N1}", $"η2 = {n2}", "", $"N2 = {N2}");
             dgvMainMetrics.Rows[sumRowIndex].DefaultCellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
             dgvMainMetrics.Rows[sumRowIndex].DefaultCellStyle.BackColor = Color.FromArgb(248, 249, 250);
 
-            lblFormulas.Text =
+            lblFormulas.Text = 
                 $"Словарь программы η = {n1} + {n2} = {vocabulary}.\n" +
                 $"Длина программы N = {N1} + {N2} = {length}.\n" +
-                $"Объем программы V = {length} * log₂ {vocabulary} = {Math.Round(volume)}";
-
+                $"Объем программы V = {length} * log₂ {vocabulary} = {Math.Round(volume)}.\n";
+           // if (errors) lblFormulas.Text += $"Check your code for errors!!!!";
+            
+          //  metrics.ResetError();
             dgvMainMetrics.ClearSelection();
         }
         catch (Exception ex)
